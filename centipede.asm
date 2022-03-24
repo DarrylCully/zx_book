@@ -15,40 +15,46 @@ ENTRY_POINT equ 32768
     org ENTRY_POINT
     
 
-    ld a,71
-    ld (23693),a
-    xor a
-    call 8859
+    ld a,71 ;white ink(7) black paper (0) bright (64)
+    ld (23693),a ;set screen colours
+   ; xor a ; load acc to zero
+    call 0xdaf      ;cls
+    call 8859 ;set border colours
+
+    ; ld a,2
+    ; out (254),a
+    ; ld a,2
+    ; call 8859
 
     
 
-    ld hl,blocks
-    ld (23675),hl
+    ld hl,blocks    ;address of udgs
+    ld (23675),hl   ;pointer to udgs
 
-    call 0xdaf;cls
-
-    ld hl,21+14*256
-    ld (plx),hl
     
-    call basexy
-    call splayr
 
-    ld hl,500
-    ld b,250
+    ld hl,21+14*256 ;load hl pair with start coords
+    ld (plx),hl     ;set player coords
+    
+    call basexy     ;set x and y pos of player
+    call splayr     ;show player base symbol
+
+    ;ld hl,500       ; auido
+    ;ld b,250        ;audio
 
 
 mloop equ $
-    call basexy
-    call wspace
+    call basexy     ;set x and y pos of player
+    call wspace     ;display space over player
 
-    ld bc,654
-    in a, (c)
-    rra
-    push af
-    call nc, mpl
-    pop af
-    rra
-    push af
+    ld bc,63486       ;load keyboard port
+    in a, (c)       ; see which keys are pressed
+    rra             ; outermost bit = key 1
+    push af         ;remember value
+    call nc, mpl    ;being pressed, move player left
+    pop af          ;restore acc
+    rra             ;next bit along (val 2) = key 2
+    push af         
     call nc,mpr
     pop af
     rra
@@ -58,19 +64,19 @@ mloop equ $
     rra
     call nc,mpu
 
-    call basexy
-    call splayr
-    call pitch_bend_lp
+    call basexy     ;set x/y pos of player
+    call splayr     ;show player
+    ;call pitch_bend_lp
 
-    halt
+    halt            ;delay
     
     jp mloop
 
-mpl ld hl,ply
-    ld a,(hl)
-    and a
-    ret z
-    dec (hl)
+mpl ld hl,ply   ; y is horizontal coord
+    ld a,(hl)   ; whats current val
+    and a       ;is it 0
+    ret z       ; yes, dont go further
+    dec (hl)    ;decrement y by 1
     ret
 
 mpr ld hl,ply
@@ -137,16 +143,16 @@ ktest1 rra
     jp nz,ktest1
     ret
 
-pitch_bend_lp:
-    push bc
-    push hl
-    ld de,1
-    call 949
-    pop hl
-    inc hl
-    pop bc
-    djnz pitch_bend_lp
-    ret
+; pitch_bend_lp:
+;     push bc
+;     push hl
+;     ld de,1
+;     call 949
+;     pop hl
+;     inc hl
+;     pop bc
+;     djnz pitch_bend_lp
+;     ret
 
 ;     ld bc,(score)
 ;     call 6683
