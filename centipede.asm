@@ -42,12 +42,27 @@ ENTRY_POINT equ 32768
     ;ld hl,500       ; auido
     ;ld b,250        ;audio
 
+    ld a,68
+    ld (23695),a
+    ld b,50
+
+mushlp  ld a,22
+        rst 16
+        call random
+        and 15
+        rst 16
+        call random
+        and 31
+        rst 16
+        ld a,145
+        rst 16
+        djnz mushlp
 
 mloop equ $
     call basexy     ;set x and y pos of player
     call wspace     ;display space over player
 
-    ld bc,63486       ;load keyboard port
+    ld bc,65022       ;load keyboard port
     in a, (c)       ; see which keys are pressed
     rra             ; outermost bit = key 1
     push af         ;remember value
@@ -55,14 +70,23 @@ mloop equ $
     pop af          ;restore acc
     rra             ;next bit along (val 2) = key 2
     push af         
-    call nc,mpr
-    pop af
-    rra
-    push af
     call nc,mpd
     pop af
     rra
+    push af
+    call nc,mpr
+    pop af
+
+    ld bc,64510
+    in a,(c)
+    rra
+    push af
+    ;call nc,mpu
+    pop af
+    rra
+    push af
     call nc,mpu
+    pop af
 
     call basexy     ;set x/y pos of player
     call splayr     ;show player
@@ -76,6 +100,14 @@ mpl ld hl,ply   ; y is horizontal coord
     ld a,(hl)   ; whats current val
     and a       ;is it 0
     ret z       ; yes, dont go further
+
+    ;simple collision detection
+    ld bc,(plx)
+    dec b
+    call atadd
+    cp 68
+    ret z
+
     dec (hl)    ;decrement y by 1
     ret
 
@@ -83,6 +115,14 @@ mpr ld hl,ply
     ld a,(hl)
     cp 31
     ret z
+
+    ;collision detection
+    ld bc,(plx)
+    inc b
+    call atadd
+    cp 68
+    ret z
+
     inc (hl)
     ret 
 
@@ -90,6 +130,13 @@ mpu ld hl,plx
     ld a,(hl)
     cp 4
     ret z
+
+    ld bc,(plx)
+    dec c
+    call atadd
+    cp 68
+    ret z
+
     dec (hl)
     ret 
 
@@ -97,6 +144,13 @@ mpd ld hl,plx
     ld a,(hl)
     cp 21
     ret z
+
+    ld bc,(plx)
+    inc c
+    call atadd
+    cp 68
+    ret z
+
     inc (hl)
     ret 
 
@@ -123,6 +177,7 @@ plx defb 0
 ply defb 0
 
 blocks defb 16,16,56,56,124,124,254,254
+        defb 24,126,255,255,60,60,60,60
 
 ktest ld c,a
     and 7
@@ -142,6 +197,36 @@ ktest1 rra
     dec c
     jp nz,ktest1
     ret
+
+
+random ld hl,(seed) ;pointer
+    ld a,h
+    and 31  ;keep it in first 8k of ROM
+    ld h,a
+    ld a,(hl)   ;get random number from locations
+    inc hl      ;increment pointer
+    ld (seed),hl
+    ret 
+
+seed defw 0
+
+
+atadd ld a,c
+     rrca
+     rrca
+     rrca
+     ld e,a
+     and 3
+     add a,88
+     ld d,a
+     ld a,e
+     and 224
+     ld e,a
+     ld a,b
+     add a,e
+     ld e,a
+     ld a,(de)
+     ret
 
 ; pitch_bend_lp:
 ;     push bc
