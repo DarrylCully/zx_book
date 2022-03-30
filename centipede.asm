@@ -18,7 +18,7 @@ ENTRY_POINT equ 32768
     ld a,71 ;white ink(7) black paper (0) bright (64)
     ld (23693),a ;set screen colours
    ; xor a ; load acc to zero
-    call 0xdaf      ;cls
+    call 0xdaf      ;cls // 3503
     call 8859 ;set border colours
 
     ; ld a,2
@@ -35,28 +35,59 @@ ENTRY_POINT equ 32768
 
     ld hl,21+14*256 ;load hl pair with start coords
     ld (plx),hl     ;set player coords
+
+    ld b,10
+    ld hl,segmnt
+segint  ld (hl),1
+        inc hl
+        ld (hl),0
+        inc hl
+        ld (hl),b
+        inc hl
+        djnz segint
     
     call basexy     ;set x and y pos of player
     call splayr     ;show player base symbol
 
-    ;ld hl,500       ; auido
-    ;ld b,250        ;audio
+    ;ld hl,500       ; audio
+    ;ld b,250        ; audio
 
-    ld a,68
-    ld (23695),a
-    ld b,50
+    ld a,68         ; green ink (4) black paper (0) bright (64)
+    ld (23695),a    ; set temporary colours
+    ld b,50         ; start with a few
 
-mushlp  ld a,22
-        rst 16
-        call random
-        and 15
-        rst 16
-        call random
-        and 31
-        rst 16
-        ld a,145
-        rst 16
-        djnz mushlp
+;     ld hl,mushlp    ;alien data structures
+;     ld b,55         ;number of aliens
+
+; alienspawnloop  call show
+;                 djnz alienspawnloop
+;                 ret 
+
+; show    ld a,(hl)     ;fetch alien status
+;         cp 255        ;is aliens switched off
+;         jr z,next     ;yes, dont display him
+;         push hl
+;         inc hl
+;         ld d,(hl)
+;         inc hl
+;         ld e,(hl)
+;         call disply
+;         pop hl
+; next ld de,3
+;     add hl,de
+;     ret
+
+mushlp  ld a,22     ;control code for AT character   
+        rst 16      
+        call random ;get a random number
+        and 15      ;want a vertical range 0 to 15
+        rst 16      
+        call random ;get random number
+        and 31      ;want horizontal range 0 to 31
+        rst 16      
+        ld a,145    ;UDG B 
+        rst 16      ;draw 
+        djnz mushlp ;repeat until all are displayed
 
 mloop equ $
     call basexy     ;set x and y pos of player
@@ -91,6 +122,17 @@ mloop equ $
     call basexy     ;set x/y pos of player
     call splayr     ;show player
     ;call pitch_bend_lp
+
+    ld ix,segmnt
+    ld b,10
+censeg push bc
+    ld a,(ix)
+    inc a
+    call nz, proseg
+    pop bc
+    ld de,3
+    add ix,de
+    djnz censeg
 
     halt            ;delay
     
@@ -173,30 +215,118 @@ wspace ld a,71
         rst 16
         ret 
 
+segxy ld a,22
+      rst 16
+      ld a,(ix+1)
+      rst 16
+      ld a,(ix+2)
+      rst 16
+      ret 
+
+proseg ld a,(ix)
+       inc a
+       ret z
+       call segxy
+       call wspace
+       call segmov
+       ld a,(ix)
+       inc a
+       ret z
+       call segxy
+       ld a,2
+       ld (23695),a
+       ld a,146
+       rst 16
+       ret 
+
+segmov ld a,(ix+1)
+       ld c,a
+       ld a,(ix+2)
+       ld b,a
+       ld a,(ix)
+       and a
+       jr z,segml
+
+segmr  ld a,(ix+2)
+       cp 31
+       jr z,segmd
+       inc a
+       ld b,a
+       call atadd
+       cp 68
+       jr z,segmd
+       inc (ix+2)
+       ret
+
+segml  ld a,(ix+2)
+       and a
+       jr z,segmd
+       dec a
+       ld b,a
+       call atadd
+       cp 68
+       jr z,segmd
+       dec (ix+2)
+       ret 
+
+segmd   ld a,(ix)
+        xor 1
+        ld (ix),a
+        ld a,(ix+1)
+        cp 21
+        jr z,segmt
+
+        inc (ix+1)
+        ret
+
+
+segmt xor a
+      ld (ix+1),a
+      ret
+
 plx defb 0
 ply defb 0
 
 blocks defb 16,16,56,56,124,124,254,254
         defb 24,126,255,255,60,60,60,60
+        defb 24,126,126,255,255,126,126,24
 
-ktest ld c,a
-    and 7
-    inc a
-    ld b,a
-    srl c
-    srl c
-    srl c
-    ld a,5
-    sub c
-    ld c,a
-    ld a,254
-ktest0 rrca
-    djnz ktest0
-    in a,(254)
-ktest1 rra
-    dec c
-    jp nz,ktest1
-    ret
+;table for segments
+;format: 3 bytes per entry, 10 segments
+; byte 1: 255=segment off, 0=left, 1=right
+; byte 2: x(vertical) coord
+; byte 3: y (horizontal) coord
+segmnt  defb 0, 0, 0    ;1
+        defb 0, 0, 0    ;2
+        defb 0, 0, 0    ;3
+        defb 0, 0, 0    ;4
+        defb 0, 0, 0    ;5
+        defb 0, 0, 0    ;6
+        defb 0, 0, 0    ;7
+        defb 0, 0, 0    ;8
+        defb 0, 0, 0    ;9
+        defb 0, 0, 0    ;10
+
+
+;keyboard port method to allow most keys to work
+; ktest ld c,a
+;     and 7
+;     inc a
+;     ld b,a
+;     srl c
+;     srl c
+;     srl c
+;     ld a,5
+;     sub c
+;     ld c,a
+;     ld a,254
+; ktest0 rrca
+;     djnz ktest0
+;     in a,(254)
+; ktest1 rra
+;     dec c
+;     jp nz,ktest1
+;     ret
 
 
 random ld hl,(seed) ;pointer
