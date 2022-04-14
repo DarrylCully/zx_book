@@ -10,6 +10,8 @@ To compile on type --tapbas %filename%.asm %filename%.tap
 To launch
 ii %filename%.tap
 
+For VS 2019:
+Requirements
 Visual Studio 2019
 Z80 assembly extension
 Specnetide extension
